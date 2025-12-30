@@ -3,9 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const ContactSection = () => {
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -14,19 +16,66 @@ const ContactSection = () => {
     orderConsent: false,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Offer Request Submitted!",
-      description: "We'll get back to you within 24 hours with your cash offer.",
-    });
-    setFormData({
-      fullName: "",
-      email: "",
-      phone: "",
-      marketingConsent: false,
-      orderConsent: false,
-    });
+    setIsSubmitting(true);
+
+    try {
+      // Save lead to database
+      const { error: dbError } = await supabase.from("leads").insert({
+        full_name: formData.fullName.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        marketing_consent: formData.marketingConsent,
+        order_consent: formData.orderConsent,
+      });
+
+      if (dbError) {
+        console.error("Database error:", dbError);
+        throw new Error("Failed to save your information");
+      }
+
+      // Send email notification
+      const { error: emailError } = await supabase.functions.invoke(
+        "send-lead-notification",
+        {
+          body: {
+            fullName: formData.fullName.trim(),
+            email: formData.email.trim(),
+            phone: formData.phone.trim(),
+            marketingConsent: formData.marketingConsent,
+            orderConsent: formData.orderConsent,
+          },
+        }
+      );
+
+      if (emailError) {
+        console.error("Email notification error:", emailError);
+        // Don't throw here - lead was saved, email is secondary
+      }
+
+      toast({
+        title: "Offer Request Submitted!",
+        description: "We'll get back to you within 24 hours with your cash offer.",
+      });
+
+      setFormData({
+        fullName: "",
+        email: "",
+        phone: "",
+        marketingConsent: false,
+        orderConsent: false,
+      });
+    } catch (error) {
+      console.error("Submission error:", error);
+      toast({
+        title: "Something went wrong",
+        description: "Please try again or call us directly.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -52,6 +101,7 @@ const ContactSection = () => {
                   value={formData.fullName}
                   onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                   required
+                  maxLength={100}
                   className="h-12"
                 />
               </div>
@@ -67,6 +117,7 @@ const ContactSection = () => {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
+                  maxLength={255}
                   className="h-12"
                 />
               </div>
@@ -82,6 +133,7 @@ const ContactSection = () => {
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   required
+                  maxLength={20}
                   className="h-12"
                 />
               </div>
@@ -116,8 +168,14 @@ const ContactSection = () => {
                 </div>
               </div>
 
-              <Button type="submit" variant="hero" size="xl" className="w-full">
-                SUBMIT
+              <Button 
+                type="submit" 
+                variant="hero" 
+                size="xl" 
+                className="w-full"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "SUBMITTING..." : "SUBMIT"}
               </Button>
 
               <p className="text-center text-xs text-muted-foreground">
