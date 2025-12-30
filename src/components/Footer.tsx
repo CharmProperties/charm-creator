@@ -31,7 +31,7 @@ const Footer = () => {
 
         <div className="border-t border-secondary-foreground/20 pt-8">
           <p className="text-center text-secondary-foreground/60 text-sm">
-            ©2035 – Charm Properties, LLC | All Rights Reserved |{" "}
+            ©2023 – Charm Properties, LLC | All Rights Reserved |{" "}
             <a href="#" className="hover:text-primary transition-colors">Privacy Policy</a>
             {" | "}
             <a href="#" className="hover:text-primary transition-colors">Terms And Conditions</a>
